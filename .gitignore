@@ -1,0 +1,5 @@
+bazel-bin
+bazel-melanoma-classifier
+bazel-out
+bazel-testlogs
+build
