@@ -1,0 +1,9 @@
+# This config refers to building with CUDA available. It does not necessarily
+# mean that we build CUDA op kernels.
+build:using_cuda --define=using_cuda=true
+
+# This config is required to build CUDA kernels.
+build:cuda --config=using_cuda
+build:cuda --define=using_cuda_nvcc=true
+
+build --config=cuda

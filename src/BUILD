@@ -1,4 +1,4 @@
-load("@rules_foreign_cc//tools/build_defs:cmake.bzl", "cmake_external")
+load("@rules_cc//cc:defs.bzl", "cc_binary")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -8,6 +8,11 @@ cc_binary(
         "main.cpp"
     ],
     deps = [
-        "@eigen//:all",
-    ]
+        "@pytorch_src//:c10_headers",
+        "@local_config_cuda//:cuda_headers",
+        "@local_config_cuda//:cuda_runtime",
+    ],
+    linkopts = [
+        "-L/usr/local/cuda/lib64/stubs",
+    ],
 )
