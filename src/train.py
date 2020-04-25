@@ -29,5 +29,4 @@ if __name__ == "__main__":
         dataset.LesionDataset(_DATA_DIR / "eval", img_width=100, img_height=100)
     )
 
-    for img in train_loader:
-        print(img)
+    

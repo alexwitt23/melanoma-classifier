@@ -1,0 +1,4 @@
+torch==1.4.0
+torchvision==0.6.0
+opencv-python==4.2.0.34
+albumentations==0.4.5
