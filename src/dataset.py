@@ -16,14 +16,13 @@ def training_augmentations(width: int, height: int) -> albumentations.Compose:
         albumentations.RandomRotate90(),
         albumentations.ShiftScaleRotate(),
     ]
-    return albumentations.Compose(albumentations)
+    return albumentations.Compose(augmentations)
 
 
 class LesionDataset(torch.utils.data.Dataset):
     def __init__(
         self,
         data_dir: pathlib.Path,
-        transforms,
         img_ext: str = "jpg",
         img_width: int = 100,
         img_height: int = 100,
@@ -31,12 +30,12 @@ class LesionDataset(torch.utils.data.Dataset):
         """ Initialize the dataset by passing in a directory
         of images. """
         super().__init__()
-        
+
         self.imgs = list(data_dir.glob(f"*{img_ext}"))
         assert self.imgs, f"No images found in {data_dir} with extension {img_ext}."
 
         self.len = len(self.imgs)
-        self.transforms = transforms
+        self.transforms = training_augmentations(img_width, img_height)
 
     def __len__(self) -> int:
         return self.len
