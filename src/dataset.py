@@ -7,6 +7,16 @@ import torch
 import cv2
 import albumentations
 
+_DATA_CLASSES = {
+    "nv": 0,  # Melanocytic nevus (benign)
+    "df": 1,  # Dermatofibroma (benign)
+    "bkl": 2,  # benign keratosis-like lesions
+    "akiec": 3,  # Actinic keratoses / intraepithelial carcinoma / Bowen's disease
+    "mel": 4,  # melanoma
+    "bcc": 5,  # basal cell carcinoma
+    "vasc": 6,  # vascular lesions
+}
+
 
 def training_augmentations(width: int, height: int) -> albumentations.Compose:
     """ Collection of augmentations to perform while training. """
@@ -15,6 +25,7 @@ def training_augmentations(width: int, height: int) -> albumentations.Compose:
         albumentations.Flip(),
         albumentations.RandomRotate90(),
         albumentations.ShiftScaleRotate(),
+        albumentations.Normalize(),
     ]
     return albumentations.Compose(augmentations)
 
@@ -24,8 +35,8 @@ class LesionDataset(torch.utils.data.Dataset):
         self,
         data_dir: pathlib.Path,
         img_ext: str = "jpg",
-        img_width: int = 100,
-        img_height: int = 100,
+        img_width: int = 450,
+        img_height: int = 450,
     ) -> None:
         """ Initialize the dataset by passing in a directory
         of images. """
@@ -52,4 +63,6 @@ class LesionDataset(torch.utils.data.Dataset):
         img_tensor = torch.from_numpy(self.transforms(image=img)["image"])
 
         # HWC-> CHW
-        return img_tensor.permute(2, 0, 1)
+        img_tensor = img_tensor.permute(2, 0, 1)
+
+        return img_tensor, _DATA_CLASSES[img_path.stem.split("_")[0]]
