@@ -35,8 +35,7 @@ class LesionDataset(torch.utils.data.Dataset):
         self,
         data_dir: pathlib.Path,
         img_ext: str = "jpg",
-        img_width: int = 450,
-        img_height: int = 450,
+        img_size: int = 224,
     ) -> None:
         """ Initialize the dataset by passing in a directory
         of images. """
@@ -46,7 +45,7 @@ class LesionDataset(torch.utils.data.Dataset):
         assert self.imgs, f"No images found in {data_dir} with extension {img_ext}."
 
         self.len = len(self.imgs)
-        self.transforms = training_augmentations(img_width, img_height)
+        self.transforms = training_augmentations(img_size, img_size)
 
     def __len__(self) -> int:
         return self.len

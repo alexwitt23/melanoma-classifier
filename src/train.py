@@ -7,7 +7,7 @@ import random
 import torch
 import numpy as np
 
-from src import dataset, model
+from src import dataset, model, effecientnet
 
 _DATA_DIR = pathlib.Path("~/datasets/melanoma10k").expanduser()
 _SAVE_DIR = pathlib.Path("~/runs/melanoma-model").expanduser()
@@ -22,9 +22,9 @@ def train(
 ) -> None:
     highest_acc = 0
     losses = []
-    for epoch in range(20):
+    for epoch in range(40):
 
-        for img, label in train_loader:
+        for idx, (img, label) in enumerate(train_loader):
 
             skin_model.train()
             optimizer.zero_grad()
@@ -39,7 +39,8 @@ def train(
             loss.backward()
             optimizer.step()
 
-            print(f"Epoch {epoch}, Loss: {np.mean(losses):.5}")
+            if idx % 10 == 0:
+                print(f"Epoch {epoch}, Loss: {np.mean(losses):.5}")
 
         num_right = 0
         total = 0
@@ -58,7 +59,9 @@ def train(
         if highest_acc < num_right / total:
             highest_acc = num_right / total
 
-            torch.save(skin_model.state_dict(), _SAVE_DIR / f"model-{highest_acc:.3}.pt")
+            torch.save(
+                skin_model.state_dict(), _SAVE_DIR / f"model-{highest_acc:.3}.pt"
+            )
             print(
                 f"Saving model with new highest accuracy, {highest_acc:.3} to {_SAVE_DIR}."
             )
@@ -70,20 +73,21 @@ if __name__ == "__main__":
     random.seed(42)
 
     _SAVE_DIR.mkdir(exist_ok=True, parents=True)
-
+    model_params = effecientnet._MODEL_SCALES["efficientnet-b0"]
     # Define the data loaders
     train_loader = torch.utils.data.DataLoader(
-        dataset.LesionDataset(_DATA_DIR / "train"), batch_size=32, pin_memory=True,
+        dataset.LesionDataset(_DATA_DIR / "train", img_size=model_params[2]), batch_size=64, pin_memory=True,
     )
     eval_loader = torch.utils.data.DataLoader(
-        dataset.LesionDataset(_DATA_DIR / "eval"), batch_size=32, pin_memory=True,
+        dataset.LesionDataset(_DATA_DIR / "eval", img_size=model_params[2]), batch_size=64, pin_memory=True,
     )
     # Instantiate model
-    test_model = model.SkinModel(len(dataset._DATA_CLASSES))
-    # Create the optimzier
-    optimizer = torch.optim.SGD(
-        test_model.parameters(), lr=1e-2, weight_decay=1e-4, momentum=0.9, nesterov=True
+    test_model = effecientnet.EffecientNet(
+        model_params,
+        num_classes=len(dataset._DATA_CLASSES),
     )
+    # Create the optimzier
+    optimizer = torch.optim.RMSprop(test_model.parameters(), lr=1e-3, weight_decay=1e-4)
     # Create loss function
     loss_fn = torch.nn.CrossEntropyLoss()
 
