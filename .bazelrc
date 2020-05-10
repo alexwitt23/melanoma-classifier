@@ -1,6 +1,12 @@
+build --copt=--std=c++14
+build --copt=-I.
+build --copt=-isystem --copt bazel-out/k8-fastbuild/bin
+
 # This config refers to building with CUDA available. It does not necessarily
 # mean that we build CUDA op kernels.
 build:using_cuda --define=using_cuda=true
+build:using_cuda --action_env TF_NEED_CUDA=1
+build:using_cuda --crosstool_top=@local_config_cuda//crosstool:toolchain
 
 # This config is required to build CUDA kernels.
 build:cuda --config=using_cuda

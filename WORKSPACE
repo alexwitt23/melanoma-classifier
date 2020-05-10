@@ -15,14 +15,25 @@ load("@bazel_skylib//:workspace.bzl", "bazel_skylib_workspace")
 
 bazel_skylib_workspace()
 
+load("//third_party/gpus:cuda_configure.bzl", "cuda_configure")
+cuda_configure(name = "local_config_cuda")
+
 http_archive(
-    name = "pytorch_src",
+    name = "pytorch",
+    sha256 = "2ba21afa9c05d794bf0936b54b9c2d54e0532677fe0c27ec01b4331625521c19",
+    strip_prefix = "libtorch",
     urls = [
-        "https://github.com/alexwitt2399/melanoma-classifier/releases/download/v0.0.1-alpha/pytorch.zip",
+        "https://download.pytorch.org/libtorch/cu101/libtorch-cxx11-abi-shared-with-deps-1.5.0%2Bcu101.zip",
     ],
-    sha256 = "60a5b63b83f53beb7563bf156c678a6fa38e70e45ec6bb62d1e725b28a19a2a1",
-    strip_prefix = "pytorch",
+    build_file = "//third_party:pytorch.BUILD",
 )
 
-load("//third_party:cuda_configure.bzl", "cuda_configure")
-cuda_configure(name = "local_config_cuda")
+http_archive(
+    name = "pytorch_cpu",
+    sha256 = "2ba21afa9c05d794bf0936b54b9c2d54e0532677fe0c27ec01b4331625521c19",
+    strip_prefix = "libtorch",
+    urls = [
+        "https://download.pytorch.org/libtorch/nightly/cpu/libtorch-shared-with-deps-latest.zip",
+    ],
+    build_file = "//third_party:pytorch.BUILD",
+)
