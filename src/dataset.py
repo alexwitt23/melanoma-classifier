@@ -32,10 +32,7 @@ def training_augmentations(width: int, height: int) -> albumentations.Compose:
 
 class LesionDataset(torch.utils.data.Dataset):
     def __init__(
-        self,
-        data_dir: pathlib.Path,
-        img_ext: str = "jpg",
-        img_size: int = 224,
+        self, data_dir: pathlib.Path, img_ext: str = "jpg", img_size: int = 224,
     ) -> None:
         """ Initialize the dataset by passing in a directory
         of images. """

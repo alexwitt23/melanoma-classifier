@@ -1,0 +1,3 @@
+[submodule "third_party/efficientdet"]
+	path = third_party/efficientdet
+	url = https://github.com/alexwitt2399/efficientdet
