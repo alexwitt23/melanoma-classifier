@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-""" 
+""" Code used to prep the dataset into simpler layout
 ham10k_path: https://www.kaggle.com/kmader/skin-cancer-mnist-ham10000
 skin_lesion: https://www.kaggle.com/wanderdust/skin-lesion-analysis-toward-melanoma-detection
 """
@@ -13,7 +13,10 @@ import shutil
 import pandas as pd
 import tqdm
 
-def create_dataset(ham10k_path: pathlib.Path, skin_lesion_path: pathlib.Path, save_dir: pathlib.Path):
+
+def create_dataset(
+    ham10k_path: pathlib.Path, skin_lesion_path: pathlib.Path, save_dir: pathlib.Path
+) -> None:
 
     # Output dirs
     train_dir = save_dir / "train"
@@ -21,7 +24,6 @@ def create_dataset(ham10k_path: pathlib.Path, skin_lesion_path: pathlib.Path, sa
 
     train_dir.mkdir(exist_ok=True, parents=True)
     eval_dir.mkdir(exist_ok=True, parents=True)
-
 
     for img in tqdm.tqdm(list(skin_lesion_path.rglob("*.jpg"))):
         lesion_type = img.parts[-2]
@@ -36,25 +38,24 @@ def create_dataset(ham10k_path: pathlib.Path, skin_lesion_path: pathlib.Path, sa
         name = img.name.replace("ISIC", type_abbr)
         if random.randint(0, 100) < 20:
             shutil.copy(img, eval_dir / name)
-        else: 
+        else:
             shutil.copy(img, train_dir / name)
-
 
     csv = pd.read_csv(ham10k_path / "HAM10000_metadata.csv")
     for row in csv.iterrows():
         img_num = row[1]["image_id"].split("_")[1]
         img = list(ham10k_path.rglob(f"*{row[1]['image_id']}.jpg"))[0]
-        
+
         # 80 / 20 train/test split
         if random.randint(0, 100) < 20:
-            shutil.copy(img, eval_dir / f"{row[1]['dx']}_{img_num}.jpg")
+            shutil.copy2(img, eval_dir / f"{row[1]['dx']}_{img_num}.jpg")
         else:
-            shutil.copy(img, train_dir / f"{row[1]['dx']}_{img_num}.jpg")
-
-     
+            shutil.copy2(img, train_dir / f"{row[1]['dx']}_{img_num}.jpg")
 
 
 if __name__ == "__main__":
+    random.seed(0)
+
     parser = argparse.ArgumentParser(description="Prepare the data for training.")
     parser.add_argument(
         "--ham10k_path",
@@ -89,5 +90,5 @@ if __name__ == "__main__":
     if args.skin_lesion is not None:
         skin_lesion = args.skin_lesion.expanduser()
         assert skin_lesion.is_dir(), f"Can't find {skin_lesion}."
-    
+
     create_dataset(ham10k_path, skin_lesion, save_dir)

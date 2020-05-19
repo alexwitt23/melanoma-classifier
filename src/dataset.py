@@ -1,11 +1,10 @@
-""" Custom dataset to define how images are loaded 
-for training. """
+""" Custom dataset to define how images are loaded for training. """
 
 import pathlib
 
+import albumentations
 import torch
 import cv2
-import albumentations
 
 _DATA_CLASSES = {
     "nv": 0,  # Melanocytic nevus (benign)
@@ -30,12 +29,20 @@ def training_augmentations(width: int, height: int) -> albumentations.Compose:
     return albumentations.Compose(augmentations)
 
 
+def eval_augmentations(width: int, height: int) -> albumentations.Compose:
+    """ Collection of augmentations to perform while inferencing. """
+    augmentations = [
+        albumentations.Resize(height, width),
+        albumentations.Normalize(),
+    ]
+    return albumentations.Compose(augmentations)
+
+
 class LesionDataset(torch.utils.data.Dataset):
     def __init__(
         self, data_dir: pathlib.Path, img_ext: str = "jpg", img_size: int = 224,
     ) -> None:
-        """ Initialize the dataset by passing in a directory
-        of images. """
+        """ Initialize the dataset by passing in a directory of images. """
         super().__init__()
 
         self.imgs = list(data_dir.glob(f"*{img_ext}"))
@@ -43,6 +50,8 @@ class LesionDataset(torch.utils.data.Dataset):
 
         self.len = len(self.imgs)
         self.transforms = training_augmentations(img_size, img_size)
+
+        print(f"Found {self.len} images in {data_dir}.")
 
     def __len__(self) -> int:
         return self.len
