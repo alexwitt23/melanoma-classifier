@@ -52,14 +52,15 @@ def train(
             # Update the model params.
             optimizer.step()
 
-            # Update the learning rate.
-            lr_scheduler.step()
+            if lr_scheduler is not None:
+                # Update the learning rate.
+                lr_scheduler.step()
+                lr = optimizer.param_groups[0]["lr"]
 
             if idx % _LOG_INTERVAL == 0:
-                lr = optimizer.param_groups[0]["lr"]
-                print(
-                    f"Epoch {epoch}. Step {idx}. Loss: {np.mean(losses):.5}. lr: {lr:.5}"
-                )
+                print(f"Epoch {epoch}. Step {idx}. Loss: {np.mean(losses):.5}.")
+                if lr_scheduler is not None:
+                    print("lr: {lr:.5}")
 
         num_right, total = 0, 0
         model.eval()
@@ -100,6 +101,12 @@ def create_optimizer(
             lr=1e-4,
             momentum=optim_config.get("momentum", 0.9),
             nesterov=optim_config.get("nesterov", True),
+            weight_decay=float(optim_config.get("weight_decay", 1e-5)),
+        )
+    elif optim_type == "rmsprop":
+        optimizer = torch.optim.RMSprop(
+            model.parameters(),
+            lr=float(optim_config.get("start_lr", 1e-2)),
             weight_decay=float(optim_config.get("weight_decay", 1e-5)),
         )
     else:
@@ -163,20 +170,23 @@ if __name__ == "__main__":
 
     # Create a learning rate scheduler
     lr_config = train_config.get("lr_schedule", None)
-    max_lr = float(lr_config.get("max_lr", 1e-2))
-    start_lr = float(lr_config.get("start_lr", 1e-4))
-    end_lr = float(lr_config.get("end_lr", 1e-7))
-    warmup_epochs = float(lr_config.get("warmup_epochs", 0.1))
-    total_steps = len(train_loader) * config.get("epochs", 20)
+    if lr_config is not None:
+        max_lr = float(lr_config.get("max_lr", 1e-2))
+        start_lr = float(lr_config.get("start_lr", 1e-4))
+        end_lr = float(lr_config.get("end_lr", 1e-7))
+        warmup_epochs = float(lr_config.get("warmup_epochs", 0.1))
+        total_steps = len(train_loader) * config.get("epochs", 20)
 
-    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
-        optimizer,
-        max_lr=max_lr,
-        total_steps=total_steps,
-        div_factor=max_lr / start_lr,
-        final_div_factor=start_lr / end_lr,
-        pct_start=warmup_epochs / train_config.get("epochs"),
-    )
+        lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+            optimizer,
+            max_lr=max_lr,
+            total_steps=total_steps,
+            div_factor=max_lr / start_lr,
+            final_div_factor=start_lr / end_lr,
+            pct_start=warmup_epochs / train_config.get("epochs"),
+        )
+    else:
+        lr_scheduler = None
 
     train(
         train_loader,
