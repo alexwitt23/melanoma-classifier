@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-""" Script to train model to classify melanoma. """
+""" Script to train model to classify various skin lesions. """
 
 import argparse
 import pathlib
@@ -7,9 +7,10 @@ import random
 
 import torch
 import numpy as np
+import yaml
 
 from src import dataset
-from third_party.efficientdet import efficientnet
+from efficientdet import efficientnet
 
 _SAVE_DIR = pathlib.Path("~/runs/melanoma-model").expanduser()
 _LOG_INTERVAL = 5
@@ -22,12 +23,13 @@ def train(
     optimizer: torch.optim.Optimizer,
     lr_scheduler: torch.optim.Optimizer,
     loss_fn: torch.nn.Module,
+    num_epochs: int,
 ) -> None:
-    """ Main trainer loop. """
+    """ Main function that will perform training then call out for evaluation. """
 
     highest_acc = 0
     losses = []
-    for epoch in range(40):
+    for epoch in range(num_epochs):
 
         for idx, (img, label) in enumerate(train_loader):
 
@@ -39,33 +41,38 @@ def train(
 
             # Perform forward pass.
             out = model(img)
+
             # Compute the loss.
             loss = loss_fn(out, label)
             losses.append(loss.item())
 
             # Send the loss backwards and compute the gradients in the model.
             loss.backward()
+            
             # Update the model params.
             optimizer.step()
+            
             # Update the learning rate.
             lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
-                print(f"Epoch {epoch}. Step {idx}. Loss: {np.mean(losses):.5}")
+                lr = optimizer.param_groups[0]["lr"]
+                print(f"Epoch {epoch}. Step {idx}. Loss: {np.mean(losses):.5}. lr: {lr:.5}")
 
         num_right, total = 0, 0
         model.eval()
-        for img, label in eval_loader:
+        with torch.no_grad():
+            for img, label in eval_loader:
 
-            if torch.cuda.is_available():
-                img = img.cuda()
-                label = label.cuda()
+                if torch.cuda.is_available():
+                    img = img.cuda()
+                    label = label.cuda()
 
-            out = model(img)
+                out = model(img)
 
-            _, predicted = torch.max(out.data, 1)
-            total += label.size(0)
-            num_right += (predicted == label).sum().item()
+                _, predicted = torch.max(out.data, 1)
+                total += label.size(0)
+                num_right += (predicted == label).sum().item()
         model.train()
 
         print(f"Epoch {epoch}, Accuracy: {num_right / total:.2}")
@@ -81,6 +88,30 @@ def train(
             )
 
 
+def create_optimizer(
+    optim_config: dict, model: torch.nn.Module
+) -> torch.optim.Optimizer:
+    """ Factory for optimizer creation. """
+    optim_type = optim_config.get("type", None).lower()
+
+    if optim_type == "sgd":
+        optimizer = torch.optim.SGD(
+            model.parameters(),
+            lr=1e-4,
+            momentum=optim_config.get("momentum", 0.9),
+            nesterov=optim_config.get("nesterov", True),
+            weight_decay=float(optim_config.get("weight_decay", 1e-5)),
+        )
+    elif optim_type == "rmsprop":
+        optimizer = torch.optim.RMSprop(
+            model.parameters(), lr=1e-4, weight_decay=float(optim_config.get("weight_decay", 1e-5)),
+        )
+    else:
+        raise ValueError(f"Optimizer {optim_type} not supported.")
+
+    return optimizer
+
+
 if __name__ == "__main__":
     torch.random.manual_seed(42)
     random.seed(42)
@@ -93,10 +124,7 @@ if __name__ == "__main__":
         help="Path to the directory containing both the `train` and `eval` folders.",
     )
     parser.add_argument(
-        "--model_type",
-        type=str,
-        default="efficientnet-b0",
-        help="Path to the directory containing both the `train` and `eval` folders.",
+        "--config", type=pathlib.Path, required=True, help="Config used for training.",
     )
     parser.add_argument(
         "--batch_size", type=int, default=64, help="Train and eval batch size.",
@@ -108,7 +136,12 @@ if __name__ == "__main__":
     assert data_dir.is_dir(), f"Cant not find {data_dir}."
 
     _SAVE_DIR.mkdir(exist_ok=True, parents=True)
-    model_params = efficientnet._MODEL_SCALES["efficientnet-b0"]
+
+    config_path = args.config.expanduser()
+    assert config_path.is_file(), f"Can not find {config_path}."
+    config = yaml.safe_load(config_path.read_text())
+    model_type = config.get("model", None)
+    model_params = efficientnet._MODEL_SCALES[model_type]
 
     # Define the data loaders
     train_loader = torch.utils.data.DataLoader(
@@ -123,20 +156,41 @@ if __name__ == "__main__":
     )
 
     model = efficientnet.EfficientNet(
-        "efficientnet-b0", num_classes=len(dataset._DATA_CLASSES), img_size=(224, 224)
+        model_type, num_classes=len(dataset._DATA_CLASSES)
     )
     if torch.cuda.is_available():
         model.cuda()
 
+    train_config = config.get("training")
     # Create the optimzier
-    optimizer = torch.optim.SGD(model.parameters(), lr=1e-2, weight_decay=1e-4)
+    optimizer = create_optimizer(train_config.get("optimizer", None), model)
 
     # Create loss function
     loss_fn = torch.nn.CrossEntropyLoss()
 
     # Create a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
-        optimizer, T_max=len(train_loader.dataset), eta_min=1e-9
+    lr_config = train_config.get("lr_schedule", None)
+    max_lr = float(lr_config.get("max_lr", 1e-2))
+    start_lr = float(lr_config.get("start_lr", 1e-4))
+    end_lr = float(lr_config.get("end_lr", 1e-7))
+    warmup_epochs = float(lr_config.get("warmup_epochs", 0.1))
+    total_steps = len(train_loader) * config.get("epochs", 20)
+
+    lr_scheduler = torch.optim.lr_scheduler.OneCycleLR(
+        optimizer,
+        max_lr=max_lr,
+        total_steps=total_steps,
+        div_factor=max_lr / start_lr,
+        final_div_factor=start_lr / end_lr,
+        pct_start=warmup_epochs / train_config.get("epochs"),
     )
 
-    train(train_loader, eval_loader, model, optimizer, lr_scheduler, loss_fn)
+    train(
+        train_loader,
+        eval_loader,
+        model,
+        optimizer,
+        lr_scheduler,
+        loss_fn,
+        train_config.get("epochs"),
+    )

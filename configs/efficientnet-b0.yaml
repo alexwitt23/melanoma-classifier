@@ -1,0 +1,11 @@
+model: "efficientnet-b0"
+training:
+  epochs: 30
+  lr_schedule:
+    start_lr: 1e-3
+    max_lr: 1e-2
+    end_lr: 1e-7
+    warmup_epochs: 3
+  optimizer:
+    type: "RMSprop"
+    weight_decay: 1e-5
