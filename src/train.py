@@ -82,9 +82,7 @@ def train(
         if highest_acc < num_right / total:
             highest_acc = num_right / total
 
-            torch.save(
-                skin_model.state_dict(), _SAVE_DIR / f"model-{highest_acc:.3}.pt"
-            )
+            torch.save(model.state_dict(), _SAVE_DIR / f"model-{highest_acc:.3}.pt")
             print(
                 f"Saving model with new highest accuracy, {highest_acc:.3} to {_SAVE_DIR}."
             )
@@ -102,12 +100,6 @@ def create_optimizer(
             lr=1e-4,
             momentum=optim_config.get("momentum", 0.9),
             nesterov=optim_config.get("nesterov", True),
-            weight_decay=float(optim_config.get("weight_decay", 1e-5)),
-        )
-    elif optim_type == "rmsprop":
-        optimizer = torch.optim.RMSprop(
-            model.parameters(),
-            lr=1e-4,
             weight_decay=float(optim_config.get("weight_decay", 1e-5)),
         )
     else:
@@ -193,5 +185,5 @@ if __name__ == "__main__":
         optimizer,
         lr_scheduler,
         loss_fn,
-        train_config.get("epochs", 20)
+        train_config.get("epochs", 20),
     )

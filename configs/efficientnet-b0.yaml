@@ -8,5 +8,7 @@ training:
     end_lr: 1e-7
     warmup_epochs: 3
   optimizer:
-    type: "RMSprop"
+    type: "SGD"
+    nesterov: true
+    momentum: 0.9
     weight_decay: 1e-5
