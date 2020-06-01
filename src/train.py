@@ -48,16 +48,18 @@ def train(
 
             # Send the loss backwards and compute the gradients in the model.
             loss.backward()
-            
+
             # Update the model params.
             optimizer.step()
-            
+
             # Update the learning rate.
             lr_scheduler.step()
 
             if idx % _LOG_INTERVAL == 0:
                 lr = optimizer.param_groups[0]["lr"]
-                print(f"Epoch {epoch}. Step {idx}. Loss: {np.mean(losses):.5}. lr: {lr:.5}")
+                print(
+                    f"Epoch {epoch}. Step {idx}. Loss: {np.mean(losses):.5}. lr: {lr:.5}"
+                )
 
         num_right, total = 0, 0
         model.eval()
@@ -104,7 +106,9 @@ def create_optimizer(
         )
     elif optim_type == "rmsprop":
         optimizer = torch.optim.RMSprop(
-            model.parameters(), lr=1e-4, weight_decay=float(optim_config.get("weight_decay", 1e-5)),
+            model.parameters(),
+            lr=1e-4,
+            weight_decay=float(optim_config.get("weight_decay", 1e-5)),
         )
     else:
         raise ValueError(f"Optimizer {optim_type} not supported.")
@@ -126,9 +130,6 @@ if __name__ == "__main__":
     parser.add_argument(
         "--config", type=pathlib.Path, required=True, help="Config used for training.",
     )
-    parser.add_argument(
-        "--batch_size", type=int, default=64, help="Train and eval batch size.",
-    )
     args = parser.parse_args()
 
     # Make sure the dataset dir exists.
@@ -143,15 +144,16 @@ if __name__ == "__main__":
     model_type = config.get("model", None)
     model_params = efficientnet._MODEL_SCALES[model_type]
 
+    train_config = config.get("training")
     # Define the data loaders
     train_loader = torch.utils.data.DataLoader(
         dataset.LesionDataset(data_dir / "train", img_size=model_params[2]),
-        batch_size=args.batch_size,
+        batch_size=train_config.get("batch_size", 15),
         pin_memory=True,
     )
     eval_loader = torch.utils.data.DataLoader(
         dataset.LesionDataset(data_dir / "eval", img_size=model_params[2]),
-        batch_size=args.batch_size,
+        batch_size=train_config.get("batch_size", 15),
         pin_memory=True,
     )
 
@@ -161,7 +163,6 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         model.cuda()
 
-    train_config = config.get("training")
     # Create the optimzier
     optimizer = create_optimizer(train_config.get("optimizer", None), model)
 
@@ -192,5 +193,5 @@ if __name__ == "__main__":
         optimizer,
         lr_scheduler,
         loss_fn,
-        train_config.get("epochs"),
+        train_config.get("epochs", 20)
     )

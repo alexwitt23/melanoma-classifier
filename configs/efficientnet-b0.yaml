@@ -1,6 +1,7 @@
 model: "efficientnet-b0"
 training:
   epochs: 30
+  batch_size: 45
   lr_schedule:
     start_lr: 1e-3
     max_lr: 1e-2
